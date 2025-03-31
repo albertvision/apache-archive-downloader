@@ -17,21 +17,35 @@ args = parser.parse_args()
 
 auth = (args.username, args.password)
 
+BASE_URL = args.url
 DOWNLOAD_DIR = args.output
-DOWNLOADABLE_FILE_EXTENSIONS = ('.zip', '.rar', '.7z', '.tar.gz', '.tar', '.gz') 
+DOWNLOADABLE_FILE_EXTENSIONS = ('.zip', '.rar', '.7z', '.tar.gz', '.tar', '.gz', '.docx', '.pdf') 
 
-crawled = {}
-
-def ensure_download_dir():
-    if not os.path.exists(DOWNLOAD_DIR):
-        os.makedirs(DOWNLOAD_DIR)
+crawled = []
 
 def is_file_downloadable(url):
     return url.lower().endswith(DOWNLOADABLE_FILE_EXTENSIONS)
 
-def download_file(zip_url):
-    filename = os.path.basename(urlparse(zip_url).path)
+def get_relative_url(full_url, base_url):
+    parsed_base = urlparse(base_url)
+    parsed_full = urlparse(full_url)
+
+    if parsed_base.netloc != parsed_full.netloc:
+        return parsed_full.path.lstrip('/')
+
+    base_path = parsed_base.path
+    full_path = parsed_full.path
+
+    if full_path.startswith(base_path):
+        return full_path[len(base_path):].lstrip('/')
+    return full_path.lstrip('/')
+
+
+def download_file(file_url):
+    filename = get_relative_url(file_url, BASE_URL)
     save_path = os.path.join(DOWNLOAD_DIR, filename)
+
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
 
     downloaded_size = 0
     if os.path.exists(save_path):
@@ -39,9 +53,9 @@ def download_file(zip_url):
     
     
     headers = {'Range': f'bytes={downloaded_size}-'}
-    with requests.get(zip_url, auth=auth, headers=headers, stream=True) as response:
+    with requests.get(file_url, auth=auth, headers=headers, stream=True) as response:
         if response.status_code == 416:
-            print(f'{zip_url} already fully downloaded.')
+            print(f'{filename} already fully downloaded.')
             return
         
         response.raise_for_status()
@@ -58,13 +72,13 @@ def download_file(zip_url):
                     f.write(chunk)
                     bar.update(len(chunk))
 
-        print(f'${zip_url} saved to: {save_path}')
+        print(f'${filename} saved to: {save_path}')
 
 def crawl_directory(url):
     if url in crawled:
         return
     
-    crawled[url] = True
+    crawled.append(url)
 
     try:
         response = requests.get(url, auth=auth)
@@ -82,8 +96,7 @@ def crawl_directory(url):
 
 if __name__ == '__main__':
     try:
-        ensure_download_dir()
-        crawl_directory(args.url)
+        crawl_directory(BASE_URL)
     except KeyboardInterrupt:
         print("\nInterrupted by user. Exiting.")
         sys.exit(1)
