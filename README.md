@@ -17,9 +17,9 @@ Downloads all compressed files from `URL` into `OUTPUT`.
 
 Goes recursively through all links found on the page.
 
-Supports only HTTP Basic Auth with `USERNAME`:`PASSWORD`.
+Requires HTTP Basic Auth of the web server.
 
-Supports contiunation of partly downloaded files.
+Supports continuation of partly downloaded files.
 
 ## Todo
 
